@@ -1,8 +1,7 @@
-version: "3.9"
-
 services:
   postgres:
     image: postgres:16-alpine
+    restart: unless-stopped
     environment:
       POSTGRES_DB: max_chat_bot
       POSTGRES_USER: maxchat
@@ -11,23 +10,32 @@ services:
       - "5432:5432"
     volumes:
       - postgres_data:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U maxchat -d max_chat_bot"]
+      interval: 5s
+      timeout: 5s
+      retries: 20
 
   redis:
     image: redis:7-alpine
+    restart: unless-stopped
     ports:
       - "6379:6379"
 
   backend-api:
     build:
       context: .
+    restart: unless-stopped
     env_file:
       - ./.env
     environment:
       DATABASE_URL: postgresql+psycopg://maxchat:maxchat@postgres:5432/max_chat_bot
       REDIS_URL: redis://redis:6379/0
     depends_on:
-      - postgres
-      - redis
+      postgres:
+        condition: service_healthy
+      redis:
+        condition: service_started
     ports:
       - "8000:8000"
     healthcheck:
@@ -39,6 +47,7 @@ services:
   backend-worker:
     build:
       context: .
+    restart: unless-stopped
     command: sh -c "python -m max_chat_backend.scripts.migrate && celery -A max_chat_backend.tasks.celery_app:celery_app worker -l info"
     env_file:
       - ./.env
@@ -46,18 +55,22 @@ services:
       DATABASE_URL: postgresql+psycopg://maxchat:maxchat@postgres:5432/max_chat_bot
       REDIS_URL: redis://redis:6379/0
     depends_on:
-      - postgres
-      - redis
+      postgres:
+        condition: service_healthy
+      redis:
+        condition: service_started
 
   frontend:
     build:
       context: ../max_chat_frontend
+    restart: unless-stopped
     env_file:
       - ../max_chat_frontend/.env
     environment:
       BACKEND_BASE_URL: http://backend-api:8000
     depends_on:
-      - backend-api
+      backend-api:
+        condition: service_started
     ports:
       - "8001:8001"
     healthcheck:
