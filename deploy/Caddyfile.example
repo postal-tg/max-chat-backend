@@ -1,0 +1,8 @@
+﻿bot.example.com {
+    reverse_proxy backend-api:8000
+}
+
+admin.example.com {
+    reverse_proxy frontend:8001
+}
+

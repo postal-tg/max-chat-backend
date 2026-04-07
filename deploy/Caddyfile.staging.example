@@ -1,0 +1,10 @@
+﻿{$BACKEND_DOMAIN} {
+    encode zstd gzip
+    reverse_proxy backend-api:{$BACKEND_INTERNAL_PORT}
+}
+
+{$FRONTEND_DOMAIN} {
+    encode zstd gzip
+    reverse_proxy frontend:{$FRONTEND_INTERNAL_PORT}
+}
+
